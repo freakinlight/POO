@@ -3,85 +3,15 @@ import json
 import os
 
 import kivy
-kivy.require('2.1.0') # replace with your current kivy version !
+kivy.require('2.1.0')  # replace with your current kivy version!
 
 from kivy.app import App
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
-import os
-
-
-class RoleSelection(Screen):
-    def __init__(self, **kwargs):
-        super(RoleSelection, self).__init__(**kwargs)
-
-        layout = BoxLayout(orientation='vertical', spacing=10, size_hint=(None, None), pos_hint={'center_x': 0.5, 'center_y': 0.5})
-
-        role_labels = ['Teacher', 'Student', 'Administrator']
-
-        for role in role_labels:
-            btn = Button(text=role, size_hint=(None, None), width=200, height=50)
-            btn.bind(on_release=lambda instance, r=role: self.on_role_selected(r))
-            layout.add_widget(btn)
-
-        self.add_widget(layout)
-
-    def on_role_selected(self, role):
-        app = App.get_running_app()
-        app.role = role
-
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = 'login'
-
-class Login(Screen):
-    def do_login(self, loginText, passwordText):
-        app = App.get_running_app()
-
-        app.username = loginText
-        app.password = passwordText
-
-        # Assuming you want to use the role in the login screen as well
-        app.role  # Use app.role as needed
-
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = 'connected'
-
-        app.config.read(app.get_application_config())
-        app.config.write()
-
-    def resetForm(self):
-        self.ids['login'].text = ""
-        self.ids['password'].text = ""
-
-class ConnectedApp(App):
-    username = ''
-    password = ''
-    role = ''
-
-    def build(self):
-        manager = ScreenManager()
-
-        manager.add_widget(RoleSelection(name='role_selection'))
-        manager.add_widget(Login(name='login'))
-
-        return manager
-
-    def get_application_config(self):
-        if not self.username:
-            return super(ConnectedApp, self).get_application_config()
-
-        conf_directory = os.path.join(self.user_data_dir, self.username)
-
-        if not os.path.exists(conf_directory):
-            os.makedirs(conf_directory)
-
-        return super(ConnectedApp, self).get_application_config(
-            os.path.join(conf_directory, 'config.cfg')
-        )
+from kivy.uix.textinput import TextInput
 
 
 def blake2b(password):
@@ -99,7 +29,7 @@ class LoginCredentials:
     def read(self):
         with open(self.path, 'r') as f:
             return json.load(f)
-    
+
     def write(self, data):
         with open(self.path, 'w') as f:
             json.dump(data, f)
@@ -108,8 +38,39 @@ class LoginCredentials:
         for pair in self.read():
             if pair['username'] == username and pair['password'] == blake2b(password):
                 return True
-            
+
         return False
+
+class WidgetSelectionLayout(FloatLayout):
+    def __init__(self, **kwargs):
+        super(WidgetSelectionLayout, self).__init__(**kwargs)
+
+        # Container for centering content
+        container = BoxLayout(orientation='vertical', size_hint=(None, None), width=300, height=200)
+        container.pos_hint = {'center_x': 0.5, 'center_y': 0.5}
+        container.spacing = 15
+
+        # Widget selection buttons
+        button_teacher = Button(text='Teacher', size_hint=(1, None), height=50)
+        button_teacher.bind(on_press=lambda instance: self.on_widget_selected('teacher'))
+        container.add_widget(button_teacher)
+
+        button_student = Button(text='Student', size_hint=(1, None), height=50)
+        button_student.bind(on_press=lambda instance: self.on_widget_selected('student'))
+        container.add_widget(button_student)
+
+        button_administrator = Button(text='Administrator', size_hint=(1, None), height=50)
+        button_administrator.bind(on_press=lambda instance: self.on_widget_selected('administrator'))
+        container.add_widget(button_administrator)
+
+        # Add the container to the main layout
+        self.add_widget(container)
+
+    def on_widget_selected(self, widget_type):
+        app = App.get_running_app()
+        app.widget_type = widget_type
+        app.root.current = 'login'
+
 
 class LoginLayout(FloatLayout):
     INPUT_HEIGHT = 50
@@ -197,9 +158,24 @@ class PGSScreenManager(ScreenManager):
 class PGSApp(App):
     def build(self):
         sm = PGSScreenManager()
-        sm.add_widget(LoginScreen(name='login'))
-        sm.add_widget(MainScreen(name='main'))
+
+        # Add widget selection screen
+        widget_selection_screen = Screen(name='widget_selection')
+        widget_selection_screen.add_widget(WidgetSelectionLayout())
+        sm.add_widget(widget_selection_screen)
+
+        # Add login screen
+        login_screen = Screen(name='login')
+        login_screen.add_widget(LoginLayout())
+        sm.add_widget(login_screen)
+
+        # Add main screen
+        main_screen = Screen(name='main')
+        main_screen.add_widget(MainLayout())
+        sm.add_widget(main_screen)
+
         return sm
+
 
 if __name__ == '__main__':
     PGSApp().run()
